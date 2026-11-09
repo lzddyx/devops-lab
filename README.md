@@ -23,7 +23,7 @@
 - `jenkins/freestyle-build.sh`：课程风格的 Jenkins 自由风格构建脚本。
 - `Jenkinsfile`：可选 Pipeline 版本，与自由风格方式二选一。
 - `scripts/verify-jar.sh`：直接启动 JAR 并检查 HTTP，退出时仅停止自身启动的 Java 进程。
-- `deploy/`：Dockerfile、Compose 和严格的构建上下文白名单。
+- `deploy/`：Dockerfile、Compose、手动安全部署脚本、镜像来源记录和严格的构建上下文白名单。
 - `VERIFICATION.md`：实际验证结果和未完成项目。
 
 ## 在 Ubuntu 构建和测试
@@ -72,35 +72,28 @@ VERIFY_PORT=18082 bash scripts/verify-jar.sh
 ```bash
 ssh "${VM_USER}@${VM_HOST}" 'mkdir -p ~/devops-lab/episode-10/deploy'
 scp /path/to/mytest.jar "${VM_USER}@${VM_HOST}":devops-lab/episode-10/deploy/mytest.jar
-scp deploy/Dockerfile deploy/compose.yaml deploy/.dockerignore "${VM_USER}@${VM_HOST}":devops-lab/episode-10/deploy/
+scp deploy/Dockerfile deploy/compose.yaml deploy/.dockerignore deploy/deploy-local.sh deploy/BASE_IMAGE.md "${VM_USER}@${VM_HOST}":devops-lab/episode-10/deploy/
 ```
 
 Mac 上运行 `shasum -a 256 /path/to/mytest.jar`，Ubuntu 上运行 `sha256sum ~/devops-lab/episode-10/deploy/mytest.jar`，两边结果应相同。不要复制整个 Jenkins 数据目录、`.ssh`、凭据或完整工作区。
 
 ## 用户在 Ubuntu 单独部署 Docker
 
-当前 Ubuntu 练习用户需要 sudo 才能操作 Docker。密码只在自己的终端输入，不发到聊天，也不放进代码。
+当前 Ubuntu 练习用户需要 sudo 才能操作 Docker。密码只在自己的终端输入，不发到聊天，也不放进代码。**不要把下面的脚本加到 Jenkins。**
 
-先确认 8081 未被占用，且 `devops-episode10` 没有同名的其他项目：
-
-```bash
-ss -ltn 'sport = :8081'
-sudo docker ps -a --filter label=com.docker.compose.project=devops-episode10
-```
-
-若有已有监听或容器，先核对归属；不是本练习的内容就停止，不覆盖。
+已准备好的 Ubuntu ARM64 练习环境只需运行：
 
 ```bash
-cd ~/devops-lab/episode-10/deploy
-sudo docker compose config --quiet
-sudo docker compose build
-sudo docker compose up -d --no-build --pull never
-sudo docker compose ps
-curl --fail http://127.0.0.1:8081/test
-curl --fail http://127.0.0.1:8081/health
+bash ~/devops-lab/episode-10/deploy/deploy-local.sh
 ```
 
-预期返回 `Hello Jenkins!` 和 `OK`。若 Docker Hub 连接被重置，保留错误并停止；不使用未经验证的镜像源，也不关闭 TLS 校验。Dockerfile 使用官方可变 tag，成功拉取后应记录实际 digest；当前不声称镜像位级可复现。
+新克隆仓库也可在 `deploy/` 放入已验证的 JAR 后运行 `bash deploy-local.sh`。脚本固定校验本次 Jenkins #1 的 JAR SHA-256，其他构建产物会停止；更换产物时先验证新构建，再更新校验值，不能直接跳过校验。
+
+脚本先检查 JAR、端口 8081 和 Compose 安全配置，然后请用户进行 sudo 认证。已有同名 Compose 容器、网络或 `mytest:episode10` 镜像时停止，不覆盖。通过后才下载约 96.1 MB 的官方运行时镜像层、构建本练习镜像并启动容器。HTTP 健康检查最多重试约 60 秒，成功时输出 `Hello Jenkins!` 和 `OK`。如果任何一步失败，保留现场并检查错误，不自动清理，也不要直接反复运行。
+
+Docker Hub 当前连接被重置，因此脚本从 **Docker 官方在 Amazon ECR Public 的分发**按已核验 ARM64 digest 拉取相同 Temurin JRE 21 镜像，并再核对 image ID。来源和 digest 见 [deploy/BASE_IMAGE.md](deploy/BASE_IMAGE.md)。这不会修改系统镜像源、代理、VPN 或 TLS 设置。manifest 查询成功不等于镜像层已下载成功；最终运行情况见验证记录。
+
+部署仅监听 Ubuntu 的 `127.0.0.1:8081`，不改动 8080 的 Jenkins 或 8000 的原有服务。容器内存上限 512 MiB，无主机目录挂载，非 root、只读根文件系统、丢弃 capabilities。不执行 `down`、`prune`，不删除镜像、卷或服务数据。
 
 从 Mac 浏览器访问时，在自己的终端保持此转发打开：
 
@@ -108,7 +101,11 @@ curl --fail http://127.0.0.1:8081/health
 ssh -N -L 127.0.0.1:8081:127.0.0.1:8081 "${VM_USER}@${VM_HOST}"
 ```
 
-打开 http://127.0.0.1:8081/test。若要停止本示例，在它的部署目录运行 `sudo docker compose stop`，不影响其他 Compose 项目。
+打开 http://127.0.0.1:8081/test。若要停止本示例，在部署目录运行以下命令，只停止本项目的 mytest，不影响其他 Compose 项目：
+
+```bash
+sudo docker compose -f compose.yaml -p devops-episode10 stop mytest
+```
 
 ## 验证记录
 

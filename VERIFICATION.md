@@ -35,12 +35,19 @@ Jenkins #1 归档及已传输 JAR 的 SHA-256（与上方本机 Maven 产物不�
 e5852c31074620ee307e75dc8fe27b22345093a0c38aef9d9adc8e1528104120
 ```
 
-本记录之后的文档修订不改变该次构建的源码提交。
+文档更新提交 `442a022cb0e9aad6ce06eb884a741aa65fc740c6` 已由 **mytest #2** 再次构建成功，耗时 8.4 秒；与 #1 之间只修改 README 和验证记录。后续手动部署脚本修订不改变已传输的 #1 JAR。
+
+## 手动部署脚本准备
+
+- `deploy/deploy-local.sh` 只供用户在 Ubuntu ARM64 终端手动执行，Jenkins 不调用它。
+- 脚本静态审查及 Bash 语法检查通过。使用模拟命令测试了成功路径，以及端口占用、危险 Compose 配置、已有同名容器/网络/镜像、拉取失败、基镜像 ID 不符、HTTP 校验失败时停止的行为；这不等同于真实 Docker 部署测试。
+- 已在真实 Ubuntu 部署目录执行 `--check` 无 sudo 预检，JAR 哈希、空闲端口和 Compose 配置检查通过；独立错误 JAR 测试在 Docker/sudo 操作前被拒绝。
+- 脚本固定检查已传输 #1 JAR 的 SHA-256、官方 ECR manifest digest 和 image ID。任何错误都会停止，不执行 Docker 清理或替换已有服务。
 
 ## 尚未完成
 
 - Docker 镜像尚未构建、容器尚未启动，容器环境中的 8081 HTTP 响应尚未验证。部署需用户在 Ubuntu 终端自行完成 sudo 认证，不会给 Jenkins Docker 或高权限 SSH 权限。
-- Docker Hub 之前有连接重置问题，Temurin 运行时镜像尚未成功拉取并记录 digest。
+- Docker Hub 仍有 TLS 连接重置问题。已从 Ubuntu 成功查询 Docker 官方 ECR 分发的 ARM64 manifest，并与 Docker 官方 repo-info 的 digest 比对一致；尚未确认镜像层下载或 Docker 构建成功。
 - 可选 `Jenkinsfile` 未在 Pipeline 作业中执行。
 
 ## 记录与限制
