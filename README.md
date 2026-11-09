@@ -72,7 +72,7 @@ VERIFY_PORT=18082 bash scripts/verify-jar.sh
 ```bash
 ssh "${VM_USER}@${VM_HOST}" 'mkdir -p ~/devops-lab/episode-10/deploy'
 scp /path/to/mytest.jar "${VM_USER}@${VM_HOST}":devops-lab/episode-10/deploy/mytest.jar
-scp deploy/Dockerfile deploy/compose.yaml deploy/.dockerignore deploy/deploy-local.sh deploy/BASE_IMAGE.md "${VM_USER}@${VM_HOST}":devops-lab/episode-10/deploy/
+scp deploy/Dockerfile deploy/compose.yaml deploy/.dockerignore deploy/deploy-local.sh deploy/verify-base-image.py deploy/BASE_IMAGE.md "${VM_USER}@${VM_HOST}":devops-lab/episode-10/deploy/
 ```
 
 Mac 上运行 `shasum -a 256 /path/to/mytest.jar`，Ubuntu 上运行 `sha256sum ~/devops-lab/episode-10/deploy/mytest.jar`，两边结果应相同。不要复制整个 Jenkins 数据目录、`.ssh`、凭据或完整工作区。
@@ -89,9 +89,11 @@ bash ~/devops-lab/episode-10/deploy/deploy-local.sh
 
 新克隆仓库也可在 `deploy/` 放入已验证的 JAR 后运行 `bash deploy-local.sh`。脚本固定校验本次 Jenkins #1 的 JAR SHA-256，其他构建产物会停止；更换产物时先验证新构建，再更新校验值，不能直接跳过校验。
 
-脚本先检查 JAR、端口 8081 和 Compose 安全配置，然后请用户进行 sudo 认证。已有同名 Compose 容器、网络或 `mytest:episode10` 镜像时停止，不覆盖。通过后才下载约 96.1 MB 的官方运行时镜像层、构建本练习镜像并启动容器。HTTP 健康检查最多重试约 60 秒，成功时输出 `Hello Jenkins!` 和 `OK`。如果任何一步失败，保留现场并检查错误，不自动清理，也不要直接反复运行。
+脚本先检查 JAR、端口 8081 和 Compose 安全配置，然后请用户进行 sudo 认证。已有同名 Compose 容器、网络或 `mytest:episode10` 镜像时停止，不覆盖。通过后才下载约 96.1 MB 的官方运行时镜像层、构建本练习镜像并启动容器。HTTP 就绪检查在约 60 秒内轮询，覆盖启动时的临时连接拒绝或重置，成功时输出 `Hello Jenkins!` 和 `OK`。如果任何一步失败，保留现场并检查错误，不自动清理，也不要直接反复运行。真实执行会在部署目录保存权限受限的 `deploy-run-*.log`，方便定位已完成的步骤；日志不上传 Git。
 
-Docker Hub 当前连接被重置，因此脚本从 **Docker 官方在 Amazon ECR Public 的分发**按已核验 ARM64 digest 拉取相同 Temurin JRE 21 镜像，并再核对 image ID。来源和 digest 见 [deploy/BASE_IMAGE.md](deploy/BASE_IMAGE.md)。这不会修改系统镜像源、代理、VPN 或 TLS 设置。manifest 查询成功不等于镜像层已下载成功；最终运行情况见验证记录。
+Docker Hub 当前连接被重置，因此脚本从 **Docker 官方在 Amazon ECR Public 的分发**按已核验 ARM64 digest 拉取相同 Temurin JRE 21 镜像，并核对本地 RepoDigest、Linux/ARM64 平台及兼容 Docker 经典/containerd 存储的 image ID。来源和 digest 见 [deploy/BASE_IMAGE.md](deploy/BASE_IMAGE.md)。这不会修改系统镜像源、代理、VPN 或 TLS 设置。manifest 查询成功不等于镜像层已下载成功；最终运行情况见验证记录。
+
+镜像校验器的离线回归测试可运行 `python3 -B -m unittest discover -s deploy -p 'test_*.py'`，不连接 Docker。
 
 部署仅监听 Ubuntu 的 `127.0.0.1:8081`，不改动 8080 的 Jenkins 或 8000 的原有服务。容器内存上限 512 MiB，无主机目录挂载，非 root、只读根文件系统、丢弃 capabilities。不执行 `down`、`prune`，不删除镜像、卷或服务数据。
 

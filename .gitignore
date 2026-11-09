@@ -10,3 +10,7 @@ deploy/mytest.jar
 ._*
 .idea/
 .vscode/
+
+# Python deployment-verifier test cache
+__pycache__/
+*.pyc
