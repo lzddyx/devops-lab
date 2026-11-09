@@ -1,0 +1,12 @@
+target/
+deploy/mytest.jar
+*.log
+.env
+.env.*
+*.pem
+*.key
+*.jar
+.DS_Store
+._*
+.idea/
+.vscode/

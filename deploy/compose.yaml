@@ -1,0 +1,24 @@
+name: devops-episode10
+services:
+  mytest:
+    image: mytest:episode10
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:${APP_PORT:-8081}:8080"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
