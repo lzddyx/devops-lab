@@ -47,16 +47,16 @@ VERIFY_PORT=18082 bash scripts/verify-jar.sh
 
 1. **New Item → mytest → Freestyle project**。如果已有同名作业，先检查，不覆盖。
 2. Git SCM 仓库：`https://github.com/lzddyx/devops-lab.git`。分支：`*/main`。公开仓库可不填凭据；私有仓库需单独授权最小只读访问，不能把令牌或密钥写入脚本。
-3. JDK 选择现有 `jdk21`，路径 `/opt/java/openjdk`。
-4. 添加 **Invoke top-level Maven targets**：Maven `maven3`，Goals `clean verify`，在 Advanced 的 POM 中填 `pom.xml`。
+3. 使用现有 JDK 21；如果显示 JDK 选择项，选择 `jdk21`，路径 `/opt/java/openjdk`。当前容器默认 Java 也是 21。
+4. 添加 **Invoke top-level Maven targets**：Maven `maven3`，Goals `-B -ntp clean verify`；POM 使用仓库根目录的 `pom.xml`（默认值，可在 Advanced 中明确填写）。
 5. 再加 **Execute shell**：
 
    ```bash
-      bash scripts/verify-jar.sh
+   bash scripts/verify-jar.sh
    ```
 
-6. 构建后操作添加 **Publish JUnit test result report**：`target/surefire-reports/*.xml`。
-7. 添加 **Archive the artifacts**：`target/mytest.jar`，启用 fingerprint。
+6. 构建后操作添加 **Publish JUnit test result report**：`target/surefire-reports/*.xml`。勾选 **Skip publishing checks**，只在本地 Jenkins 展示报告。
+7. 添加 **Archive the artifacts**：`target/mytest.jar`，启用 fingerprint 和仅成功时归档；不允许空归档。
 8. 保存并点击 **Build Now**。检查测试报告、JAR 检查输出和归档 JAR。
 
 另一种等效构建方式是用单个 Execute shell 步骤 `bash jenkins/freestyle-build.sh`，不再重复执行上面的 Maven 和 shell 两步。现有 Jenkins 镜像已经在 PATH 上提供 Maven。
